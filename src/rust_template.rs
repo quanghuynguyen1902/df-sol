@@ -88,7 +88,6 @@ pub mod {} {{
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {{
-        msg!("Greetings from: {{:?}}", ctx.program_id);
         Ok(())
     }}
 }}
@@ -172,7 +171,6 @@ pub use initialize::*;
 pub struct Initialize {}
 
 pub fn handler(ctx: Context<Initialize>) -> Result<()> {
-    msg!("Greetings from: {{:?}}", ctx.program_id);
     Ok(())
 }
 "#
