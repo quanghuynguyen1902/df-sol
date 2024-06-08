@@ -3,6 +3,8 @@ name = "df-sol"
 version = "0.1.0"
 edition = "2021"
 authors = ["quanghuynguyen1902"]
+description = "create template repo for anchor framework"
+license = "MIT"
 repository = "https://github.com/quanghuynguyen1902/df-sol"
 
 [dependencies]
