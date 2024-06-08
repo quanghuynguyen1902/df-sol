@@ -72,10 +72,6 @@ fn process_command(opts: Opts) -> Result<()> {
     }
 }
 
-fn set() -> Result<()> {
-    Ok(())
-}
-
 #[allow(clippy::too_many_arguments)]
 fn init(
     name: String,
