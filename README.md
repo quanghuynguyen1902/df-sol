@@ -7,7 +7,6 @@ A Rust package designed to help you create template repositories easily to start
 
 1. [Installation](#installation)
 2. [Usage](#usage)
-3. [Features](#features)
 
 ## Installation
 
