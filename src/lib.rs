@@ -42,7 +42,6 @@ pub enum Command {
         #[clap(long, action)]
         force: bool,
     },
-    Set {},
 }
 
 pub fn entry(opts: Opts) -> Result<()> {
@@ -69,8 +68,7 @@ fn process_command(opts: Opts) -> Result<()> {
             template,
             test_template,
             force,
-        ),
-        Command::Set {} => set(),
+        )
     }
 }
 
@@ -116,22 +114,8 @@ fn init(
     std::env::set_current_dir(&project_name)?;
     fs::create_dir_all("app")?;
 
-    // let mut cfg = Config::default();
     let test_script = test_template.get_test_script(javascript);
-    // cfg.scripts
-    //     .insert("test".to_owned(), test_script.to_owned());
-
-    // let mut localnet = BTreeMap::new();
     let program_id = rust_template::get_or_create_program_id(&rust_name);
-    // localnet.insert(
-    //     rust_name,
-    //     ProgramDeployment {
-    //         address: program_id,
-    //         path: None,
-    //         idl: None,
-    //     },
-    // );
-    // cfg.programs.insert(Cluster::Localnet, localnet);
     let toml = create_anchor_toml(program_id.to_string(), test_script.to_string());
     fs::write("Anchor.toml", toml)?;
 
