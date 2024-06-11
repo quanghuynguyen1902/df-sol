@@ -24,7 +24,7 @@ semver = "1.0.4"
 serde = { version = "1.0.122", features = ["derive"] }
 serde_json = "1.0"
 shellexpand = "3.1.0"
-solana-sdk = "1.18.14"
+solana-sdk = "1.18.16"
 solang-parser = "=0.3.3"
 syn = { version = "2.0.66", features = ["full", "extra-traits"] }
 tar = "0.4.35"

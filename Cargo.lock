@@ -801,7 +801,7 @@ dependencies = [
  "cargo_toml",
  "chrono",
  "clap",
- "dirs 5.0.1",
+ "dirs",
  "flate2",
  "heck",
  "pathdiff",
@@ -841,20 +841,11 @@ dependencies = [
 
 [[package]]
 name = "dirs"
-version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca3aa72a6f96ea37bbc5aa912f6788242832f75369bdfdadcb0e38423f100059"
-dependencies = [
- "dirs-sys 0.3.7",
-]
-
-[[package]]
-name = "dirs"
 version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44c45a9d03d6676652bcb5e724c7e988de1acad23a711b5217ab9cbecbec2225"
 dependencies = [
- "dirs-sys 0.4.1",
+ "dirs-sys",
 ]
 
 [[package]]
@@ -865,17 +856,6 @@ checksum = "b98cf8ebf19c3d1b223e151f99a4f9f0690dca41414773390fc824184ac833e1"
 dependencies = [
  "cfg-if",
  "dirs-sys-next",
-]
-
-[[package]]
-name = "dirs-sys"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b1d1d91c932ef41c0f2663aa8b0ca0342d444d842c06914aa0a7e352d0bada6"
-dependencies = [
- "libc",
- "redox_users",
- "winapi",
 ]
 
 [[package]]
@@ -2045,7 +2025,7 @@ version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da03fa3b94cc19e3ebfc88c4229c49d8f08cdbd1228870a45f0ffdf84988e14b"
 dependencies = [
- "dirs 4.0.0",
+ "dirs",
 ]
 
 [[package]]
@@ -2078,9 +2058,9 @@ checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
 name = "solana-frozen-abi"
-version = "1.18.15"
+version = "1.18.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c00a6aca244dfa904e2c4a26406ba7b0987344ceaec932f3cda0b35eff0babc"
+checksum = "780402262644f9efe9ac7d885812d245007fe65fd56a3dfed83ed30d61b44c74"
 dependencies = [
  "block-buffer 0.10.4",
  "bs58",
@@ -2103,9 +2083,9 @@ dependencies = [
 
 [[package]]
 name = "solana-frozen-abi-macro"
-version = "1.18.15"
+version = "1.18.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bed58b27b9b8877893f69bc5cfd1c62e984315e0229d83cf8a32ad0933c0d6c9"
+checksum = "df836de37aba77234c7afa1d857dc450fb9983572e4c6f595c84cdda65a63792"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2115,9 +2095,9 @@ dependencies = [
 
 [[package]]
 name = "solana-logger"
-version = "1.18.15"
+version = "1.18.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bee2daf61ae582edf9634adf8e5021faf002df0d3f69078ecbcd6c7b41bdf833"
+checksum = "9906be6edd0e1b579510736c153dbc51e5968808098d1b1f8c89dbea960aba58"
 dependencies = [
  "env_logger",
  "lazy_static",
@@ -2126,9 +2106,9 @@ dependencies = [
 
 [[package]]
 name = "solana-program"
-version = "1.18.15"
+version = "1.18.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f4908f360900d0a1aa81c7bad7937c78f0825c3f08ff0b22f1de0e43e5946f2"
+checksum = "48ecc7af7594674687260a4d7bcfb0588cefdbe9d0f6c4e9f3140999107566c4"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -2181,9 +2161,9 @@ dependencies = [
 
 [[package]]
 name = "solana-sdk"
-version = "1.18.15"
+version = "1.18.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c50ec330850953d4971b052ff98c74a8e67e7618b4aed9f4971b8d3b68fcd1cd"
+checksum = "73bb113fa17e0607343afdc795c2c5230981c5b51c99b2c54fba91755879d65b"
 dependencies = [
  "assert_matches",
  "base64 0.21.7",
@@ -2236,9 +2216,9 @@ dependencies = [
 
 [[package]]
 name = "solana-sdk-macro"
-version = "1.18.15"
+version = "1.18.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95ef2ea49002d1bf52a4a8509570b2c3b88e7b6d0a131b11bbd637ca1e1df0ff"
+checksum = "8fcdb3a94e2f04d856d2fba6feb4f6887a1da21a3ee0b64b69c08d15dc22d46c"
 dependencies = [
  "bs58",
  "proc-macro2",
@@ -2282,9 +2262,9 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "subtle"
-version = "2.5.0"
+version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
+checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 
 [[package]]
 name = "syn"

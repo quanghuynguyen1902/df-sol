@@ -1,21 +1,20 @@
-use crate::{create_files, get_anchor_version, override_or_create_files, Files};
+use crate::{create_files, override_or_create_files, Files};
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use dirs::home_dir;
 use heck::{ToPascalCase, ToSnakeCase};
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{read_keypair_file, write_keypair_file, Keypair},
     signer::Signer,
 };
-use std::fmt;
-use std::str::FromStr;
 use std::{
     fs::{self, File},
     io::Write as _,
     path::Path,
     process::Stdio,
 };
+
+const ANCHOR_VERSION: &str = "0.30.0";
 
 /// Program initialization template
 #[derive(Clone, Debug, Default, Eq, PartialEq, Parser, ValueEnum)]
@@ -43,36 +42,6 @@ pub fn create_program(name: &str, template: ProgramTemplate) -> Result<()> {
 
     create_files(&[common_files, template_files].concat())
 }
-
-#[macro_export]
-macro_rules! home_path {
-    ($my_struct:ident, $path:literal) => {
-        #[derive(Clone, Debug)]
-        pub struct $my_struct(String);
-
-        impl Default for $my_struct {
-            fn default() -> Self {
-                $my_struct(home_dir().unwrap().join($path).display().to_string())
-            }
-        }
-
-        impl FromStr for $my_struct {
-            type Err = anyhow::Error;
-
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                Ok(Self(s.to_owned()))
-            }
-        }
-
-        impl fmt::Display for $my_struct {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{}", self.0)
-            }
-        }
-    };
-}
-
-home_path!(WalletPath, ".config/solana/id.json");
 
 /// Create a program with a single `lib.rs` file.
 fn create_program_template_single(name: &str, program_path: &Path) -> Files {
@@ -199,7 +168,6 @@ codegen-units = 1
 }
 
 fn cargo_toml(name: &str) -> String {
-    let version = get_anchor_version().unwrap();
     format!(
         r#"[package]
 name = "{0}"
@@ -224,7 +192,7 @@ anchor-lang = "{2}"
 "#,
         name,
         name.to_snake_case(),
-        version,
+        ANCHOR_VERSION,
     )
 }
 
@@ -250,7 +218,6 @@ pub fn get_or_create_program_id(name: &str) -> Pubkey {
 }
 
 pub fn create_anchor_toml(program_id: String, test_script: String) -> String {
-    let wallet_path = WalletPath::default().to_string();
     format!(
         r#"[toolchain]
 
@@ -266,7 +233,7 @@ url = "https://api.apr.dev"
 
 [provider]
 cluster = "Localnet"
-wallet = "{wallet_path}"
+wallet = "wallet.json"
 
 [scripts]
 test = "{test_script}"
@@ -349,7 +316,6 @@ describe("{}", () => {{
 }
 
 pub fn package_json(jest: bool, license: String) -> String {
-    let version = get_anchor_version().unwrap();
     if jest {
         format!(
             r#"{{
@@ -359,7 +325,7 @@ pub fn package_json(jest: bool, license: String) -> String {
     "lint": "prettier */*.js \"*/**/*{{.js,.ts}}\" --check"
   }},
   "dependencies": {{
-    "@coral-xyz/anchor": "^{version}"
+    "@coral-xyz/anchor": "^{ANCHOR_VERSION}"
   }},
   "devDependencies": {{
     "jest": "^29.0.3",
@@ -377,7 +343,7 @@ pub fn package_json(jest: bool, license: String) -> String {
     "lint": "prettier */*.js \"*/**/*{{.js,.ts}}\" --check"
   }},
   "dependencies": {{
-    "@coral-xyz/anchor": "^{version}"
+    "@coral-xyz/anchor": "^{ANCHOR_VERSION}"
   }},
   "devDependencies": {{
     "chai": "^4.3.4",
@@ -391,7 +357,6 @@ pub fn package_json(jest: bool, license: String) -> String {
 }
 
 pub fn ts_package_json(jest: bool, license: String) -> String {
-    let version = get_anchor_version().unwrap();
     if jest {
         format!(
             r#"{{
@@ -401,7 +366,7 @@ pub fn ts_package_json(jest: bool, license: String) -> String {
     "lint": "prettier */*.js \"*/**/*{{.js,.ts}}\" --check"
   }},
   "dependencies": {{
-    "@coral-xyz/anchor": "^{version}"
+    "@coral-xyz/anchor": "^{ANCHOR_VERSION}"
   }},
   "devDependencies": {{
     "@types/bn.js": "^5.1.0",
@@ -423,7 +388,7 @@ pub fn ts_package_json(jest: bool, license: String) -> String {
     "lint": "prettier */*.js \"*/**/*{{.js,.ts}}\" --check"
   }},
   "dependencies": {{
-    "@coral-xyz/anchor": "^{version}"
+    "@coral-xyz/anchor": "^{ANCHOR_VERSION}"
   }},
   "devDependencies": {{
     "chai": "^4.3.4",
@@ -558,39 +523,26 @@ pub enum TestTemplate {
 }
 
 impl TestTemplate {
-    pub fn get_test_script(&self, js: bool) -> &str {
+    pub fn get_test_script(&self) -> &str {
         match &self {
             Self::Mocha => {
-                if js {
-                    "yarn run mocha -t 1000000 tests/"
-                } else {
-                    "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
-                }
+                "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
             }
             Self::Jest => {
-                if js {
-                    "yarn run jest"
-                } else {
-                    "yarn run jest --preset ts-jest"
-                }
+                "yarn run jest --preset ts-jest"
             }
             Self::Rust => "cargo test",
         }
     }
 
-    pub fn create_test_files(&self, project_name: &str, js: bool, program_id: &str) -> Result<()> {
+    pub fn create_test_files(&self, project_name: &str, program_id: &str) -> Result<()> {
         match self {
             Self::Mocha => {
                 // Build the test suite.
                 fs::create_dir_all("tests")?;
 
-                if js {
-                    let mut test = File::create(format!("tests/{}.js", &project_name))?;
-                    test.write_all(mocha(project_name).as_bytes())?;
-                } else {
-                    let mut mocha = File::create(format!("tests/{}.ts", &project_name))?;
-                    mocha.write_all(ts_mocha(project_name).as_bytes())?;
-                }
+                let mut mocha = File::create(format!("tests/{}.ts", &project_name))?;
+                mocha.write_all(ts_mocha(project_name).as_bytes())?;
             }
             Self::Jest => {
                 // Build the test suite.
@@ -634,7 +586,6 @@ impl TestTemplate {
     }
 }
 pub fn tests_cargo_toml(name: &str) -> String {
-    let version = get_anchor_version().unwrap();
     format!(
         r#"[package]
 name = "tests"
@@ -646,7 +597,7 @@ edition = "2021"
 anchor-client = "{0}"
 {1} = {{ version = "0.1.0", path = "../programs/{1}" }}
 "#,
-        version, name,
+        ANCHOR_VERSION, name,
     )
 }
 
@@ -698,4 +649,48 @@ fn test_initialize() {{
             ),
         ),
     ]
+}
+
+pub fn devbox_json() -> &'static str {
+    r#"{
+  "packages": {
+    "curl": {
+      "version": "latest"
+    },
+    "nodejs": {
+      "version": "18"
+    },
+    "yarn": {
+      "version": "latest"
+    },
+    "libiconv": {
+      "version": "latest"
+    },
+    "darwin.apple_sdk.frameworks.Security": {
+      "platforms": [
+        "aarch64-darwin",
+        "x86_64-darwin"
+      ]
+    },
+    "darwin.apple_sdk.frameworks.SystemConfiguration": {
+      "platforms": [
+        "aarch64-darwin",
+        "x86_64-darwin"
+      ]
+    }
+  },
+  "shell": {
+    "init_hook": [
+      "curl \"https://sh.rustup.rs\" -sfo rustup.sh && sh rustup.sh -y && rustup component add rustfmt clippy",
+      "export PATH=\"${HOME}/.cargo/bin:${PATH}\"",
+      "sh -c \"$(curl -sSfL https://release.solana.com/v1.18.16/install)\"",
+      "export PATH=\"$HOME/.local/share/solana/install/active_release/bin:$PATH\"",
+      "cargo install --git https://github.com/coral-xyz/anchor avm --locked --force",
+      "avm install 0.30.0",
+      "avm use latest",
+      "cargo install df-sol"
+    ]
+  }
+}
+    "#
 }

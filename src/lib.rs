@@ -2,7 +2,7 @@ use crate::rust_template::{create_anchor_toml, ProgramTemplate, TestTemplate};
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use heck::{ToKebabCase, ToSnakeCase};
-use regex::Regex;
+use solana_sdk::signature::{Keypair};
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
@@ -23,9 +23,6 @@ pub enum Command {
     Init {
         /// Workspace name
         name: String,
-        /// Use JavaScript instead of TypeScript
-        #[clap(short, long)]
-        javascript: bool,
         /// Don't install JavaScript dependencies
         #[clap(long)]
         no_install: bool,
@@ -54,28 +51,18 @@ fn process_command(opts: Opts) -> Result<()> {
     match opts.command {
         Command::Init {
             name,
-            javascript,
             no_install,
             no_git,
             template,
             test_template,
             force,
-        } => init(
-            name,
-            javascript,
-            no_install,
-            no_git,
-            template,
-            test_template,
-            force,
-        )
+        } => init(name, no_install, no_git, template, test_template, force),
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 fn init(
     name: String,
-    javascript: bool,
     no_install: bool,
     no_git: bool,
     template: ProgramTemplate,
@@ -110,7 +97,7 @@ fn init(
     std::env::set_current_dir(&project_name)?;
     fs::create_dir_all("app")?;
 
-    let test_script = test_template.get_test_script(javascript);
+    let test_script = test_template.get_test_script();
     let program_id = rust_template::get_or_create_program_id(&rust_name);
     let toml = create_anchor_toml(program_id.to_string(), test_script.to_string());
     fs::write("Anchor.toml", toml)?;
@@ -120,6 +107,12 @@ fn init(
 
     // Initialize .prettierignore file
     fs::write(".prettierignore", rust_template::prettier_ignore())?;
+
+    // Initialize wallet.json
+    fs::write("wallet.json", create_keypair())?;
+
+    // Initialize devbox.json
+    fs::write("devbox.json", rust_template::devbox_json())?;
 
     // Remove the default program if `--force` is passed
     if force {
@@ -139,27 +132,18 @@ fn init(
     let license = get_npm_init_license()?;
 
     let jest = TestTemplate::Jest == test_template;
-    if javascript {
-        // Build javascript config
-        let mut package_json = File::create("package.json")?;
-        package_json.write_all(rust_template::package_json(jest, license).as_bytes())?;
 
-        let mut deploy = File::create("migrations/deploy.js")?;
+    // Build typescript config
+    let mut ts_config = File::create("tsconfig.json")?;
+    ts_config.write_all(rust_template::ts_config(jest).as_bytes())?;
 
-        deploy.write_all(rust_template::deploy_script().as_bytes())?;
-    } else {
-        // Build typescript config
-        let mut ts_config = File::create("tsconfig.json")?;
-        ts_config.write_all(rust_template::ts_config(jest).as_bytes())?;
+    let mut ts_package_json = File::create("package.json")?;
+    ts_package_json.write_all(rust_template::ts_package_json(jest, license).as_bytes())?;
 
-        let mut ts_package_json = File::create("package.json")?;
-        ts_package_json.write_all(rust_template::ts_package_json(jest, license).as_bytes())?;
+    let mut deploy = File::create("migrations/deploy.ts")?;
+    deploy.write_all(rust_template::ts_deploy_script().as_bytes())?;
 
-        let mut deploy = File::create("migrations/deploy.ts")?;
-        deploy.write_all(rust_template::ts_deploy_script().as_bytes())?;
-    }
-
-    test_template.create_test_files(&project_name, javascript, &program_id.to_string())?;
+    test_template.create_test_files(&project_name, &program_id.to_string())?;
 
     if !no_install {
         let yarn_result = install_node_modules("yarn")?;
@@ -275,27 +259,39 @@ fn get_npm_init_license() -> Result<String> {
     Ok(license.trim().to_string())
 }
 
-fn get_anchor_version() -> Result<String> {
-    let (cmd, args) = match cfg!(target_os = "windows") {
-        true => ("cmd", vec!["/C", "anchor --version"]),
-        false => ("sh", vec!["-c", "anchor --version"]),
-    };
+// fn get_anchor_version() -> Result<String> {
+//     let (cmd, args) = match cfg!(target_os = "windows") {
+//         true => ("cmd", vec!["/C", "anchor --version"]),
+//         false => ("sh", vec!["-c", "anchor --version"]),
+//     };
+//
+//     let anchor_version_output = std::process::Command::new(cmd).args(args).output()?;
+//
+//     if !anchor_version_output.status.success() {
+//         return Err(anyhow!("Failed to get anchor version"));
+//     }
+//
+//     let anchor_version_string = String::from_utf8(anchor_version_output.stdout)?;
+//
+//     // Define the regex to capture the version (assuming format "anchor 0.x.y")
+//     let re = Regex::new(r"(\d+\.\d+\.\d+)").unwrap();
+//     let cap = re.captures(&anchor_version_string);
+//
+//     if let Some(mat) = cap {
+//         Ok(mat.get(1).unwrap().as_str().to_string())
+//     } else {
+//         Err(anyhow!("Failed to parse anchor version from output"))
+//     }
+// }
 
-    let anchor_version_output = std::process::Command::new(cmd).args(args).output()?;
+fn create_keypair() -> String {
+    let keypair = Keypair::new();
+    let keypair_bytes = keypair.to_bytes();
+    // Convert keypair to base58 strings
+    let serialized = serde_json::to_string(&keypair_bytes.to_vec());
 
-    if !anchor_version_output.status.success() {
-        return Err(anyhow!("Failed to get anchor version"));
-    }
-
-    let anchor_version_string = String::from_utf8(anchor_version_output.stdout)?;
-
-    // Define the regex to capture the version (assuming format "anchor 0.x.y")
-    let re = Regex::new(r"(\d+\.\d+\.\d+)").unwrap();
-    let cap = re.captures(&anchor_version_string);
-
-    if let Some(mat) = cap {
-        Ok(mat.get(1).unwrap().as_str().to_string())
-    } else {
-        Err(anyhow!("Failed to parse anchor version from output"))
+    match serialized {
+        Ok(v) => return v,
+        Err(_e) => return "".parse().unwrap(),
     }
 }
