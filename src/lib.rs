@@ -94,7 +94,7 @@ fn init(
 
     let test_script = rust_template::get_test_script();
     let program_id = rust_template::get_or_create_program_id(&rust_name);
-    let toml = create_anchor_toml(program_id.to_string(), test_script.to_string());
+    let toml = create_anchor_toml(program_id.to_string(), test_script.to_string(), template);
     fs::write("Anchor.toml", toml)?;
 
     // Initialize .gitignore file
@@ -105,6 +105,9 @@ fn init(
 
     // Initialize wallet.json
     fs::write("wallet.json", create_keypair())?;
+
+    // Initialize README.md
+    fs::write("README.md", rust_template::readme(template))?;
 
     // Initialize devbox.json
     fs::write("devbox.json", rust_template::devbox_json())?;
