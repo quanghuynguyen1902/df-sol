@@ -1,8 +1,8 @@
-use crate::rust_template::{create_anchor_toml, ProgramTemplate, TestTemplate};
+use crate::rust_template::{create_anchor_toml, ProgramTemplate};
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use heck::{ToKebabCase, ToSnakeCase};
-use solana_sdk::signature::{Keypair};
+use solana_sdk::signature::Keypair;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
@@ -30,11 +30,8 @@ pub enum Command {
         #[clap(long)]
         no_git: bool,
         /// Rust program template to use
-        #[clap(value_enum, short, long, default_value = "single")]
+        #[clap(value_enum, short, long, default_value = "basic")]
         template: ProgramTemplate,
-        /// Test template to use
-        #[clap(value_enum, long, default_value = "mocha")]
-        test_template: TestTemplate,
         /// Initialize even if there are files
         #[clap(long, action)]
         force: bool,
@@ -54,9 +51,8 @@ fn process_command(opts: Opts) -> Result<()> {
             no_install,
             no_git,
             template,
-            test_template,
             force,
-        } => init(name, no_install, no_git, template, test_template, force),
+        } => init(name, no_install, no_git, template, force),
     }
 }
 
@@ -66,7 +62,6 @@ fn init(
     no_install: bool,
     no_git: bool,
     template: ProgramTemplate,
-    test_template: TestTemplate,
     force: bool,
 ) -> Result<()> {
     // We need to format different cases for the dir and the name
@@ -97,7 +92,7 @@ fn init(
     std::env::set_current_dir(&project_name)?;
     fs::create_dir_all("app")?;
 
-    let test_script = test_template.get_test_script();
+    let test_script = rust_template::get_test_script();
     let program_id = rust_template::get_or_create_program_id(&rust_name);
     let toml = create_anchor_toml(program_id.to_string(), test_script.to_string());
     fs::write("Anchor.toml", toml)?;
@@ -131,19 +126,17 @@ fn init(
 
     let license = get_npm_init_license()?;
 
-    let jest = TestTemplate::Jest == test_template;
-
     // Build typescript config
     let mut ts_config = File::create("tsconfig.json")?;
-    ts_config.write_all(rust_template::ts_config(jest).as_bytes())?;
+    ts_config.write_all(rust_template::ts_config().as_bytes())?;
 
     let mut ts_package_json = File::create("package.json")?;
-    ts_package_json.write_all(rust_template::ts_package_json(jest, license).as_bytes())?;
+    ts_package_json.write_all(rust_template::ts_package_json(license, template).as_bytes())?;
 
     let mut deploy = File::create("migrations/deploy.ts")?;
     deploy.write_all(rust_template::ts_deploy_script().as_bytes())?;
 
-    test_template.create_test_files(&project_name, &program_id.to_string())?;
+    rust_template::create_test_files(&project_name, template)?;
 
     if !no_install {
         let yarn_result = install_node_modules("yarn")?;
@@ -258,31 +251,6 @@ fn get_npm_init_license() -> Result<String> {
     let license = String::from_utf8(npm_init_license_output.stdout)?;
     Ok(license.trim().to_string())
 }
-
-// fn get_anchor_version() -> Result<String> {
-//     let (cmd, args) = match cfg!(target_os = "windows") {
-//         true => ("cmd", vec!["/C", "anchor --version"]),
-//         false => ("sh", vec!["-c", "anchor --version"]),
-//     };
-//
-//     let anchor_version_output = std::process::Command::new(cmd).args(args).output()?;
-//
-//     if !anchor_version_output.status.success() {
-//         return Err(anyhow!("Failed to get anchor version"));
-//     }
-//
-//     let anchor_version_string = String::from_utf8(anchor_version_output.stdout)?;
-//
-//     // Define the regex to capture the version (assuming format "anchor 0.x.y")
-//     let re = Regex::new(r"(\d+\.\d+\.\d+)").unwrap();
-//     let cap = re.captures(&anchor_version_string);
-//
-//     if let Some(mat) = cap {
-//         Ok(mat.get(1).unwrap().as_str().to_string())
-//     } else {
-//         Err(anyhow!("Failed to parse anchor version from output"))
-//     }
-// }
 
 fn create_keypair() -> String {
     let keypair = Keypair::new();

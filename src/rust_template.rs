@@ -1,4 +1,4 @@
-use crate::{create_files, override_or_create_files, Files};
+use crate::{create_files, Files};
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use heck::{ToPascalCase, ToSnakeCase};
@@ -7,23 +7,20 @@ use solana_sdk::{
     signature::{read_keypair_file, write_keypair_file, Keypair},
     signer::Signer,
 };
-use std::{
-    fs::{self, File},
-    io::Write as _,
-    path::Path,
-    process::Stdio,
-};
+use std::fs::File;
+use std::io::Write;
+use std::{fs, path::Path};
 
 const ANCHOR_VERSION: &str = "0.30.0";
 
 /// Program initialization template
-#[derive(Clone, Debug, Default, Eq, PartialEq, Parser, ValueEnum)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Parser, ValueEnum, Copy)]
 pub enum ProgramTemplate {
-    /// Program with a single `lib.rs` file
+    /// Program with a basic template
     #[default]
-    Single,
-    /// Program with multiple files for instructions, state...
-    Multiple,
+    Basic,
+    /// Program with a counter template
+    Counter,
 }
 
 /// Create a program from the given name and template.
@@ -36,15 +33,15 @@ pub fn create_program(name: &str, template: ProgramTemplate) -> Result<()> {
     ];
 
     let template_files = match template {
-        ProgramTemplate::Single => create_program_template_single(name, &program_path),
-        ProgramTemplate::Multiple => create_program_template_multiple(name, &program_path),
+        ProgramTemplate::Basic => create_program_template_basic(name, &program_path),
+        ProgramTemplate::Counter => create_program_template_counter(name, &program_path),
     };
 
     create_files(&[common_files, template_files].concat())
 }
 
-/// Create a program with a single `lib.rs` file.
-fn create_program_template_single(name: &str, program_path: &Path) -> Files {
+/// Create a program with a basic template
+fn create_program_template_basic(name: &str, program_path: &Path) -> Files {
     vec![(
         program_path.join("src").join("lib.rs"),
         format!(
@@ -70,23 +67,12 @@ pub struct Initialize {{}}
     )]
 }
 
-/// Create a program with multiple files for instructions, state...
-fn create_program_template_multiple(name: &str, program_path: &Path) -> Files {
-    let src_path = program_path.join("src");
-    vec![
-        (
-            src_path.join("lib.rs"),
-            format!(
-                r#"pub mod constants;
-pub mod error;
-pub mod instructions;
-pub mod state;
-
-use anchor_lang::prelude::*;
-
-pub use constants::*;
-pub use instructions::*;
-pub use state::*;
+/// Create a program with counter template
+fn create_program_template_counter(name: &str, program_path: &Path) -> Files {
+    vec![(
+        program_path.join("src").join("lib.rs"),
+        format!(
+            r#"use anchor_lang::prelude::*;
 
 declare_id!("{}");
 
@@ -95,58 +81,62 @@ pub mod {} {{
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {{
-        initialize::handler(ctx)
+        let counter_account = &mut ctx.accounts.counter;
+        counter_account.count = 0;
+        Ok(())
+    }}
+
+    pub fn increment(ctx: Context<Increment>) -> Result<()> {{
+        let counter_account = &mut ctx.accounts.counter;
+        counter_account.count += 1;
+        Ok(())
+    }}
+}}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {{
+    #[account(
+        init,
+        seeds = [b"counter"],
+        bump,
+        payer=user,
+        space = Counter::space()
+    )]
+    pub counter: Account<'info, Counter>,
+
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    pub system_program: Program<'info, System>
+}}
+
+#[derive(Accounts)]
+pub struct Increment<'info> {{
+    #[account(mut)]
+    pub counter: Account<'info, Counter>,
+
+    #[account(mut)]  // Remove leading space
+    pub user: Signer<'info>,
+
+    pub system_program: Program<'info, System>
+}}
+
+#[account]
+pub struct Counter {{
+    count: u64
+}}
+
+impl Counter {{
+    pub fn space() -> usize {{
+        8 +  // discriminator
+        8 // counter
     }}
 }}
 "#,
-                get_or_create_program_id(name),
-                name.to_snake_case(),
-            ),
+            get_or_create_program_id(name),
+            name.to_snake_case(),
         ),
-        (
-            src_path.join("constants.rs"),
-            r#"use anchor_lang::prelude::*;
-
-#[constant]
-pub const SEED: &str = "anchor";
-"#
-            .into(),
-        ),
-        (
-            src_path.join("error.rs"),
-            r#"use anchor_lang::prelude::*;
-
-#[error_code]
-pub enum ErrorCode {
-    #[msg("Custom error message")]
-    CustomError,
-}
-"#
-            .into(),
-        ),
-        (
-            src_path.join("instructions").join("mod.rs"),
-            r#"pub mod initialize;
-
-pub use initialize::*;
-"#
-            .into(),
-        ),
-        (
-            src_path.join("instructions").join("initialize.rs"),
-            r#"use anchor_lang::prelude::*;
-
-#[derive(Accounts)]
-pub struct Initialize {}
-
-pub fn handler(ctx: Context<Initialize>) -> Result<()> {
-    Ok(())
-}
-"#
-            .into(),
-        ),
-        (src_path.join("state").join("mod.rs"), r#""#.into()),
-    ]
+    )]
 }
 
 const fn workspace_manifest() -> &'static str {
@@ -241,22 +231,6 @@ test = "{test_script}"
     )
 }
 
-pub fn deploy_script() -> &'static str {
-    r#"// Migrations are an early feature. Currently, they're nothing more than this
-// single deploy script that's invoked from the CLI, injecting a provider
-// configured from the workspace's Anchor.toml.
-
-const anchor = require("@coral-xyz/anchor");
-
-module.exports = async function (provider) {
-  // Configure client to use the provider.
-  anchor.setProvider(provider);
-
-  // Add your deploy script here.
-};
-"#
-}
-
 pub fn ts_deploy_script() -> &'static str {
     r#"// Migrations are an early feature. Currently, they're nothing more than this
 // single deploy script that's invoked from the CLI, injecting a provider
@@ -273,122 +247,25 @@ module.exports = async function (provider) {
 "#
 }
 
-pub fn mocha(name: &str) -> String {
+pub fn ts_package_json(license: String, template: ProgramTemplate) -> String {
+    let template_files = match template {
+        ProgramTemplate::Basic => ts_package_json_basic(license),
+        ProgramTemplate::Counter => ts_package_json_counter(license),
+    };
+
+    template_files
+}
+
+pub fn ts_package_json_basic(license: String) -> String {
     format!(
-        r#"const anchor = require("@coral-xyz/anchor");
-
-describe("{}", () => {{
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
-
-  it("Is initialized!", async () => {{
-    // Add your test here.
-    const program = anchor.workspace.{};
-    const tx = await program.methods.initialize().rpc();
-    console.log("Your transaction signature", tx);
-  }});
-}});
-"#,
-        name,
-        name.to_pascal_case(),
-    )
-}
-
-pub fn jest(name: &str) -> String {
-    format!(
-        r#"const anchor = require("@coral-xyz/anchor");
-
-describe("{}", () => {{
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
-
-  it("Is initialized!", async () => {{
-    // Add your test here.
-    const program = anchor.workspace.{};
-    const tx = await program.methods.initialize().rpc();
-    console.log("Your transaction signature", tx);
-  }});
-}});
-"#,
-        name,
-        name.to_pascal_case(),
-    )
-}
-
-pub fn package_json(jest: bool, license: String) -> String {
-    if jest {
-        format!(
-            r#"{{
+        r#"{{
   "license": "{license}",
   "scripts": {{
     "lint:fix": "prettier */*.js \"*/**/*{{.js,.ts}}\" -w",
     "lint": "prettier */*.js \"*/**/*{{.js,.ts}}\" --check"
   }},
   "dependencies": {{
-    "@coral-xyz/anchor": "^{ANCHOR_VERSION}"
-  }},
-  "devDependencies": {{
-    "jest": "^29.0.3",
-    "prettier": "^2.6.2"
-  }}
-}}
-    "#
-        )
-    } else {
-        format!(
-            r#"{{
-  "license": "{license}",
-  "scripts": {{
-    "lint:fix": "prettier */*.js \"*/**/*{{.js,.ts}}\" -w",
-    "lint": "prettier */*.js \"*/**/*{{.js,.ts}}\" --check"
-  }},
-  "dependencies": {{
-    "@coral-xyz/anchor": "^{ANCHOR_VERSION}"
-  }},
-  "devDependencies": {{
-    "chai": "^4.3.4",
-    "mocha": "^9.0.3",
-    "prettier": "^2.6.2"
-  }}
-}}
-"#
-        )
-    }
-}
-
-pub fn ts_package_json(jest: bool, license: String) -> String {
-    if jest {
-        format!(
-            r#"{{
-  "license": "{license}",
-  "scripts": {{
-    "lint:fix": "prettier */*.js \"*/**/*{{.js,.ts}}\" -w",
-    "lint": "prettier */*.js \"*/**/*{{.js,.ts}}\" --check"
-  }},
-  "dependencies": {{
-    "@coral-xyz/anchor": "^{ANCHOR_VERSION}"
-  }},
-  "devDependencies": {{
-    "@types/bn.js": "^5.1.0",
-    "@types/jest": "^29.0.3",
-    "jest": "^29.0.3",
-    "prettier": "^2.6.2",
-    "ts-jest": "^29.0.2",
-    "typescript": "^4.3.5"
-  }}
-}}
-"#
-        )
-    } else {
-        format!(
-            r#"{{
-  "license": "{license}",
-  "scripts": {{
-    "lint:fix": "prettier */*.js \"*/**/*{{.js,.ts}}\" -w",
-    "lint": "prettier */*.js \"*/**/*{{.js,.ts}}\" --check"
-  }},
-  "dependencies": {{
-    "@coral-xyz/anchor": "^{ANCHOR_VERSION}"
+    "@coral-xyz/anchor": "^{ANCHOR_VERSION}",
   }},
   "devDependencies": {{
     "chai": "^4.3.4",
@@ -402,79 +279,133 @@ pub fn ts_package_json(jest: bool, license: String) -> String {
   }}
 }}
 "#
-        )
-    }
-}
-
-pub fn ts_mocha(name: &str) -> String {
-    format!(
-        r#"import * as anchor from "@coral-xyz/anchor";
-import {{ Program }} from "@coral-xyz/anchor";
-import {{ {} }} from "../target/types/{}";
-
-describe("{}", () => {{
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
-
-  const program = anchor.workspace.{} as Program<{}>;
-
-  it("Is initialized!", async () => {{
-    // Add your test here.
-    const tx = await program.methods.initialize().rpc();
-    console.log("Your transaction signature", tx);
-  }});
-}});
-"#,
-        name.to_pascal_case(),
-        name.to_snake_case(),
-        name,
-        name.to_pascal_case(),
-        name.to_pascal_case(),
     )
 }
 
-pub fn ts_jest(name: &str) -> String {
+pub fn ts_package_json_counter(license: String) -> String {
     format!(
-        r#"import * as anchor from "@coral-xyz/anchor";
-import {{ Program }} from "@coral-xyz/anchor";
-import {{ {} }} from "../target/types/{}";
-
-describe("{}", () => {{
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
-
-  const program = anchor.workspace.{} as Program<{}>;
-
-  it("Is initialized!", async () => {{
-    // Add your test here.
-    const tx = await program.methods.initialize().rpc();
-    console.log("Your transaction signature", tx);
-  }});
-}});
-"#,
-        name.to_pascal_case(),
-        name.to_snake_case(),
-        name,
-        name.to_pascal_case(),
-        name.to_pascal_case(),
-    )
-}
-
-pub fn ts_config(jest: bool) -> &'static str {
-    if jest {
-        r#"{
-  "compilerOptions": {
-    "types": ["jest"],
-    "typeRoots": ["./node_modules/@types"],
-    "lib": ["es2015"],
-    "module": "commonjs",
-    "target": "es6",
-    "esModuleInterop": true
-  }
-}
+        r#"{{
+  "license": "{license}",
+  "scripts": {{
+    "lint:fix": "prettier */*.js \"*/**/*{{.js,.ts}}\" -w",
+    "lint": "prettier */*.js \"*/**/*{{.js,.ts}}\" --check"
+  }},
+  "dependencies": {{
+    "@coral-xyz/anchor": "^{ANCHOR_VERSION}",
+    "@solana/web3.js": "^1.92.3"
+  }},
+  "devDependencies": {{
+    "chai": "^4.3.4",
+    "mocha": "^9.0.3",
+    "ts-mocha": "^10.0.0",
+    "@types/bn.js": "^5.1.0",
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^9.0.0",
+    "typescript": "^4.3.5",
+    "prettier": "^2.6.2"
+  }}
+}}
 "#
-    } else {
-        r#"{
+    )
+}
+
+pub fn ts_mocha(name: &str, template: ProgramTemplate) -> String {
+    let template_files = match template {
+        ProgramTemplate::Basic => ts_mocha_basic(name),
+        ProgramTemplate::Counter => ts_mocha_counter(name),
+    };
+
+    template_files
+}
+
+pub fn ts_mocha_basic(name: &str) -> String {
+    format!(
+        r#"import * as anchor from "@coral-xyz/anchor";
+import {{ Program }} from "@coral-xyz/anchor";
+import {{ {} }} from "../target/types/{}";
+
+describe("{}", () => {{
+  // Configure the client to use the local cluster.
+  anchor.setProvider(anchor.AnchorProvider.env());
+
+  const program = anchor.workspace.{} as Program<{}>;
+
+  it("Is initialized!", async () => {{
+    // Add your test here.
+    const tx = await program.methods.initialize().rpc();
+    console.log("Your transaction signature", tx);
+  }});
+}});
+"#,
+        name.to_pascal_case(),
+        name.to_snake_case(),
+        name,
+        name.to_pascal_case(),
+        name.to_pascal_case(),
+    )
+}
+
+pub fn ts_mocha_counter(name: &str) -> String {
+    format!(
+        r#"import * as anchor from "@coral-xyz/anchor";
+import {{ Program }} from "@coral-xyz/anchor";
+import {{  PublicKey }} from "@solana/web3.js";
+import {{ expect }} from "chai";
+import {{ {} }} from "../target/types/{}";
+
+
+describe("{}", () => {{
+  // Configure the client to use the local cluster.
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.{} as Program<{}>;
+  let counterAccount: PublicKey;
+  let counterBump: number;
+
+  before("Boilerplates", async () => {{
+    [counterAccount, counterBump] = await PublicKey.findProgramAddress(
+      [Buffer.from("counter")],
+      program.programId
+    );
+  }});
+
+  it("Initialize counter!", async () => {{
+    await program.methods
+      .initialize()
+      .accounts({{
+        counter: counterAccount,
+        user: provider.wallet.publicKey,
+      }})
+      .rpc();
+
+    const counter = await program.account.counter.fetch(counterAccount);
+    expect(counter.count.toString()).eq("0")
+  }});
+  it("Increment counter", async () => {{
+    await program.methods
+      .increment()
+      .accounts({{
+        counter: counterAccount,
+        user: provider.wallet.publicKey,
+      }})
+      .rpc();
+
+    const counter = await program.account.counter.fetch(counterAccount);
+    expect(counter.count.toString()).eq("1")
+  }});
+}});
+"#,
+        name.to_pascal_case(),
+        name.to_snake_case(),
+        name,
+        name.to_pascal_case(),
+        name.to_pascal_case(),
+    )
+}
+
+pub fn ts_config() -> &'static str {
+    r#"{
   "compilerOptions": {
     "types": ["mocha", "chai"],
     "typeRoots": ["./node_modules/@types"],
@@ -485,13 +416,11 @@ pub fn ts_config(jest: bool) -> &'static str {
   }
 }
 "#
-    }
 }
 
 pub fn git_ignore() -> &'static str {
     r#".anchor
 .DS_Store
-target
 **/*.rs.bk
 node_modules
 test-ledger
@@ -510,187 +439,60 @@ test-ledger
 "#
 }
 
-/// Test initialization template
-#[derive(Clone, Debug, Default, Eq, PartialEq, Parser, ValueEnum)]
-pub enum TestTemplate {
-    /// Generate template for Mocha unit-test
-    #[default]
-    Mocha,
-    /// Generate template for Jest unit-test
-    Jest,
-    /// Generate template for Rust unit-test
-    Rust,
+pub fn get_test_script() -> &'static str {
+    "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 }
 
-impl TestTemplate {
-    pub fn get_test_script(&self) -> &str {
-        match &self {
-            Self::Mocha => {
-                "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
-            }
-            Self::Jest => {
-                "yarn run jest --preset ts-jest"
-            }
-            Self::Rust => "cargo test",
-        }
-    }
+pub fn create_test_files(project_name: &str, template: ProgramTemplate) -> Result<()> {
+    fs::create_dir_all("tests")?;
 
-    pub fn create_test_files(&self, project_name: &str, program_id: &str) -> Result<()> {
-        match self {
-            Self::Mocha => {
-                // Build the test suite.
-                fs::create_dir_all("tests")?;
+    let mut mocha = File::create(format!("tests/{}.ts", &project_name))?;
+    mocha.write_all(ts_mocha(project_name, template).as_bytes())?;
 
-                let mut mocha = File::create(format!("tests/{}.ts", &project_name))?;
-                mocha.write_all(ts_mocha(project_name).as_bytes())?;
-            }
-            Self::Jest => {
-                // Build the test suite.
-                fs::create_dir_all("tests")?;
-
-                let mut test = File::create(format!("tests/{}.test.js", &project_name))?;
-                test.write_all(jest(project_name).as_bytes())?;
-            }
-            Self::Rust => {
-                // Do not initilize git repo
-                let exit = std::process::Command::new("cargo")
-                    .arg("new")
-                    .arg("--vcs")
-                    .arg("none")
-                    .arg("--lib")
-                    .arg("tests")
-                    .stderr(Stdio::inherit())
-                    .output()
-                    .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
-                if !exit.status.success() {
-                    eprintln!("'cargo new --lib tests' failed");
-                    std::process::exit(exit.status.code().unwrap_or(1));
-                }
-
-                let mut files = Vec::new();
-                let tests_path = Path::new("tests");
-                files.extend(vec![(
-                    tests_path.join("Cargo.toml"),
-                    tests_cargo_toml(project_name),
-                )]);
-                files.extend(create_program_template_rust_test(
-                    project_name,
-                    tests_path,
-                    program_id,
-                ));
-                override_or_create_files(&files)?;
-            }
-        }
-
-        Ok(())
-    }
+    Ok(())
 }
-pub fn tests_cargo_toml(name: &str) -> String {
+
+pub fn devbox_json() -> String {
     format!(
-        r#"[package]
-name = "tests"
-version = "0.1.0"
-description = "Created with Anchor"
-edition = "2021"
-
-[dependencies]
-anchor-client = "{0}"
-{1} = {{ version = "0.1.0", path = "../programs/{1}" }}
-"#,
-        ANCHOR_VERSION, name,
-    )
-}
-
-/// Generate template for Rust unit-test
-fn create_program_template_rust_test(name: &str, tests_path: &Path, program_id: &str) -> Files {
-    let src_path = tests_path.join("src");
-    vec![
-        (
-            src_path.join("lib.rs"),
-            r#"#[cfg(test)]
-mod test_initialize;
-"#
-            .into(),
-        ),
-        (
-            src_path.join("test_initialize.rs"),
-            format!(
-                r#"use std::str::FromStr;
-
-use anchor_client::{{
-    solana_sdk::{{
-        commitment_config::CommitmentConfig, pubkey::Pubkey, signature::read_keypair_file,
+        r#"{{
+  "packages": {{
+    "curl": {{
+      "version": "latest"
     }},
-    Client, Cluster,
-}};
-
-#[test]
-fn test_initialize() {{
-    let program_id = "{0}";
-    let anchor_wallet = std::env::var("ANCHOR_WALLET").unwrap();
-    let payer = read_keypair_file(&anchor_wallet).unwrap();
-
-    let client = Client::new_with_options(Cluster::Localnet, &payer, CommitmentConfig::confirmed());
-    let program_id = Pubkey::from_str(program_id).unwrap();
-    let program = client.program(program_id).unwrap();
-
-    let tx = program
-        .request()
-        .accounts({1}::accounts::Initialize {{}})
-        .args({1}::instruction::Initialize {{}})
-        .send()
-        .expect("");
-
-    println!("Your transaction signature {{}}", tx);
-}}
-"#,
-                program_id,
-                name.to_snake_case(),
-            ),
-        ),
-    ]
-}
-
-pub fn devbox_json() -> &'static str {
-    r#"{
-  "packages": {
-    "curl": {
-      "version": "latest"
-    },
-    "nodejs": {
+    "nodejs": {{
       "version": "18"
-    },
-    "yarn": {
+    }},
+    "yarn": {{
       "version": "latest"
-    },
-    "libiconv": {
+    }},
+    "libiconv": {{
       "version": "latest"
-    },
-    "darwin.apple_sdk.frameworks.Security": {
+    }},
+    "darwin.apple_sdk.frameworks.Security": {{
       "platforms": [
         "aarch64-darwin",
         "x86_64-darwin"
       ]
-    },
-    "darwin.apple_sdk.frameworks.SystemConfiguration": {
+    }},
+    "darwin.apple_sdk.frameworks.SystemConfiguration": {{
       "platforms": [
         "aarch64-darwin",
         "x86_64-darwin"
       ]
-    }
-  },
-  "shell": {
+    }}
+  }},
+  "shell": {{
     "init_hook": [
       "curl \"https://sh.rustup.rs\" -sfo rustup.sh && sh rustup.sh -y && rustup component add rustfmt clippy",
-      "export PATH=\"${HOME}/.cargo/bin:${PATH}\"",
+      "export PATH=\"${{HOME}}/.cargo/bin:${{PATH}}\"",
       "sh -c \"$(curl -sSfL https://release.solana.com/v1.18.16/install)\"",
       "export PATH=\"$HOME/.local/share/solana/install/active_release/bin:$PATH\"",
       "cargo install --git https://github.com/coral-xyz/anchor avm --locked --force",
-      "avm install 0.30.0",
+      "avm install {ANCHOR_VERSION}",
       "avm use latest",
       "cargo install df-sol"
     ]
-  }
-}
-    "#
+  }}
+}}"#
+    )
 }
