@@ -5,27 +5,28 @@ A Rust package designed to help you create template repositories easily to start
 
 ## Table of Contents
 
-1. [Installation](#installation)
-2. [Usage](#usage)
+1. [Setting up the environment](#setting-up-the-environment)
+2. [Creating a new project](#creating-a-new-project)
+3. [Writing and compiling smart contracts](#writing-and-compiling-smart-contracts)
+4. [Testing contracts](#testing-contracts)
+5. [Deploying to a live network](#deploying-to-a-live-network)
+6. [Reporting Issues](#reporting-issues)
 
-## Installation
+## Setting up the environment
 
-To use package, you need to have Rust, solana-cli and anchor framework  installed on your system. If you don't have them installed:
+To use package, you need to have Rust, nodejs, and git installed on your system. If you don't have them installed:
 - Install rust from [rust-lang.org](https://www.rust-lang.org/), 
-- Install solana-cli from [here](https://docs.solanalabs.com/cli/install) and then run solana-keygen new to create a keypair at the default location. Anchor uses this keypair to run your program tests.
-- Install anchor framework from [here](https://www.anchor-lang.com/docs/installation)
-
+- Install node.js >=18.0 from [nodejs.org](https://nodejs.org/en/download/package-manager)
+- Install git from [git](https://www.atlassian.com/git/tutorials/install-git)
 Once these packages are installed, install `df-sol` package by run:
 
 ```sh
 cargo install df-sol
 ```
 
-## Usage
+## Creating a new project
 
-### Creating a New Template
-
-To create a new template repository, you can use the following command:
+To create a new project, you can use the following command:
 
 ```sh
 df-sol init <name-project>
@@ -35,30 +36,130 @@ Example
 df-sol init counter
 ```
 
-To create a program with multiple files for instructions, state...
+To create a project using an optional template
 ```sh
-df-sol init <name-project> --template multiple
+df-sol init <name-project> --template <template>
 ``` 
 Example
 ```sh
-df-sol init counter --template multiple
+df-sol init counter-program --template counter
+```
+Program template includes:
+- basic: Generate basic template
+- counter:  Generate counter template
+- mint-token:  Generate mint token template
+
+Navigate to the folder you created and use Devbox to install the environment.
+If you don't install, follow Follow the instruction from [the installation guide](https://www.jetify.com/devbox/docs/installing_devbox/).
+Open a terminal in that folder.
+- Init devbox 
+  ```shell
+  devbox init
+  ```
+- Start a new shell
+  ```shell
+  devbox shell --pure
+  ```
+
+## Writing and compiling smart contracts
+
+### Writing smart contracts
+Start by creating a new directory called `programs` and write logic smart contract to file `./src/lib.rs`.
+
+### Compiling contracts
+To compile the contract run `anchor build` in your terminal
+```shell
+ anchor build
 ```
 
-To create a program with other test template
-```sh
-df-sol init <name-project> --test-template <test-template>
-``` 
-Test template includes: 
-- mocha: Generate template for Mocha unit-test
-- jest:  Generate template for Jest unit-test
-- rust:  Generate template for Rust unit-test
+## Testing contracts
+A file test is generated for you. The shell of the test imports the Anchor framework files and gets the program ready to run. The tests to using the mocha test framework, so the it function defines a test and describe can be used to group tests together.
+```typescript
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { Counter } from "../target/types/counter";
 
-Example
-```sh
-df-sol init counter --test-template jest
+describe("counter", () => {
+  // Configure the client to use the local cluster.
+  anchor.setProvider(anchor.AnchorProvider.env());
+
+  const program = anchor.workspace.Counter as Program<Counter>;
+
+  it("Is initialized!", async () => {
+    // Add your test here.
+    const tx = await program.methods.initialize().rpc();
+    console.log("Your transaction signature", tx);
+  });
+});
 ```
 
-### Reporting Issues
+To run test, use:
+```shell
+anchor test
+```
+
+## Deploying to a live network
+
+Once you're ready to share your dApp with other people, you may want to deploy it to a live network. This way others can access an instance that's not running locally on your system.
+
+The "mainnet" Solana network deals with real money, but there are separate "devnet" networks that do not.
+
+To deploy to the devnet network, follow these steps:
+
+1. **Configure Solana URL to Devnet**
+    ```shell
+    solana config set --url https://api.devnet.solana.com
+    ```
+
+2. **Airdrop SOL to Address**
+  - To deploy a program to the devnet network, ensure that you have SOL in your wallet. The amount of SOL depends on the size of the program.
+
+  - Get the address of the wallet:
+    ```shell
+    solana address --keypair wallet.json
+    ```
+
+  - Airdrop SOL to your address:
+    ```shell
+    solana airdrop 2 https://api.devnet.solana.com <address>
+    ```
+
+  - Check the balance of the address:
+    ```shell
+    solana balance <address>
+    ```
+
+3. **Deploy Program**
+    ```sh
+    anchor deploy
+    ```
+
+4. **Test Program**
+    ```sh
+    anchor test --skip-deploy
+    ```
+
+### Integrate with Frontend
+Import the generated TypeScript module into your front-end application, and use it to interact with your program. The module provides functions that correspond to the functions defined in your IDL.
+```typescript
+import { Program, AnchorProvider, setProvider } from '@project-serum/anchor'
+import { Connection, KeyPair } from '@solana/web3.js'
+import { PROGRAM_ID, IDL } from './your-program-dir'
+// where IDL is the .json created by anchor build
+// and PROGRAM_ID is your on-chain program ID
+
+export const yourFunction = async () => {
+    const wallet = KeyPair.generate()
+    const connection = new Connection(QN_ENDPOINT)
+    const provider = new AnchorProvider(connection, wallet, {})
+    setProvider(provider)
+    const program = new Program(IDL, PROGRAM_ID)
+    // ... your code
+    // e.g. await program.methods.yourMethod(YOUR_PARAMETERS).accounts({YOUR_ACCOUNTS}).rpc();
+}
+```
+  
+## Reporting Issues
 
 If you encounter any issues, please report them on the [GitHub Issues](https://github.com/quanghuynguyen1902/df-sol/issues) page.
 
