@@ -10,7 +10,7 @@ A Rust package designed to help you create template repositories easily to start
 3. [Writing and compiling smart contracts](#writing-and-compiling-smart-contracts)
 4. [Testing contracts](#testing-contracts)
 5. [Deploying to a live network](#deploying-to-a-live-network)
-6. [Reporting Issues](#reporting-issues)
+6. [Integrate with Frontend](#integrate-with-frontend)
 
 ## Setting up the environment
 
@@ -46,9 +46,9 @@ Example
 df-sol init counter-program --template counter
 ```
 Program template includes:
-- basic: Generate basic template
-- counter:  Generate counter template
-- mint-token:  Generate mint token template
+- **basic**: Generate basic template
+- **counter**:  Generate counter template
+- **mint-token**:  Generate mint token template
 
 Navigate to the folder you created and use Devbox to install the environment.
 If you don't install, follow Follow the instruction from [the installation guide](https://www.jetify.com/devbox/docs/installing_devbox/).
