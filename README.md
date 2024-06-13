@@ -18,6 +18,7 @@ To use package, you need to have Rust, nodejs, and git installed on your system.
 - Install rust from [rust-lang.org](https://www.rust-lang.org/), 
 - Install node.js >=18.0 from [nodejs.org](https://nodejs.org/en/download/package-manager)
 - Install git from [git](https://www.atlassian.com/git/tutorials/install-git)
+
 Once these packages are installed, install `df-sol` package by run:
 
 ```sh
@@ -73,7 +74,7 @@ To compile the contract run `anchor build` in your terminal
 ```
 
 ## Testing contracts
-A file test is generated for you. The shell of the test imports the Anchor framework files and gets the program ready to run. The tests to using the mocha test framework, so the it function defines a test and describe can be used to group tests together.
+A file test is generated for you. The shell of the test imports the `Anchor framework` files and gets the program ready to run. The tests to using the `mocha` test framework, so each `it` function defines a test and describe can be used to group tests together.
 ```typescript
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
