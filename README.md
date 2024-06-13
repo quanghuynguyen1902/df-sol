@@ -142,22 +142,26 @@ To deploy to the `devnet` network, follow these steps:
 
 ### Integrate with Frontend
 Import the generated TypeScript module into your front-end application, and use it to interact with your program. The module provides functions that correspond to the functions defined in your IDL.
+
+Copy `idl` of your program from `target/idl/{project_name}.json` to file `idl.json` in your front-end project folder. Then, following the code below:
+
 ```typescript
-import { Program, AnchorProvider, setProvider } from '@project-serum/anchor'
-import { Connection, KeyPair } from '@solana/web3.js'
-import { PROGRAM_ID, IDL } from './your-program-dir'
+import { Program, AnchorProvider, setProvider } from "@project-serum/anchor";
+import { Connection, KeyPair, PublicKey } from "@solana/web3.js";
+import idl from "./idl.json";
+import { Idl } from "@coral-xyz/anchor";
 // where IDL is the .json created by anchor build
-// and PROGRAM_ID is your on-chain program ID
 
 export const yourFunction = async () => {
-    const wallet = KeyPair.generate()
-    const connection = new Connection(QN_ENDPOINT)
-    const provider = new AnchorProvider(connection, wallet, {})
-    setProvider(provider)
-    const program = new Program(IDL, PROGRAM_ID)
+    const wallet = KeyPair.generate();
+    const connection = new Connection("https://api.devnet.solana.com");
+    const provider = new AnchorProvider(connection, wallet, {});
+    setProvider(provider);
+    const programId = new PublicKey(idl.address);
+    const program = new Program(idl as Idl, programId);
     // ... your code
     // e.g. await program.methods.yourMethod(YOUR_PARAMETERS).accounts({YOUR_ACCOUNTS}).rpc();
-}
+};
 ```
   
 ## Reporting Issues
