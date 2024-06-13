@@ -122,7 +122,7 @@ To deploy to the devnet network, follow these steps:
 
   - Airdrop SOL to your address:
     ```shell
-    solana airdrop 2 https://api.devnet.solana.com <address>
+    solana airdrop 2 <address>
     ```
 
   - Check the balance of the address:
