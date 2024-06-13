@@ -103,9 +103,9 @@ anchor test
 
 Once you're ready to share your dApp with other people, you may want to deploy it to a live network. This way others can access an instance that's not running locally on your system.
 
-The "mainnet" Solana network deals with real money, but there are separate "devnet" networks that do not.
+The `mainnet` Solana network deals with real money, but there are separate `devnet` networks that do not.
 
-To deploy to the devnet network, follow these steps:
+To deploy to the `devnet` network, follow these steps:
 
 1. **Configure Solana URL to Devnet**
     ```shell
@@ -113,7 +113,7 @@ To deploy to the devnet network, follow these steps:
     ```
 
 2. **Airdrop SOL to Address**
-  - To deploy a program to the devnet network, ensure that you have SOL in your wallet. The amount of SOL depends on the size of the program.
+  - To deploy a program to the `devnet` network, ensure that you have SOL in your wallet. The amount of SOL depends on the size of the program.
 
   - Get the address of the wallet:
     ```shell
