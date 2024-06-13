@@ -15,9 +15,9 @@ A Rust package designed to help you create template repositories easily to start
 ## Setting up the environment
 
 To use package, you need to have Rust, nodejs, and git installed on your system. If you don't have them installed:
-- Install rust from [rust-lang.org](https://www.rust-lang.org/), 
-- Install node.js >=18.0 from [nodejs.org](https://nodejs.org/en/download/package-manager)
-- Install git from [git](https://www.atlassian.com/git/tutorials/install-git)
+- Install `rust` from [rust-lang.org](https://www.rust-lang.org/), 
+- Install `node.js >=18.0` from [nodejs.org](https://nodejs.org/en/download/package-manager)
+- Install `git` from [git](https://www.atlassian.com/git/tutorials/install-git)
 
 Once these packages are installed, install `df-sol` package by run:
 
