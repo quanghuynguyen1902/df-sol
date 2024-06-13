@@ -1,7 +1,7 @@
 
 # Df Sol
 
-A Rust package designed to help you create template repositories easily to start with anchor framework on Solana. This README will guide you through the installation, usage, and contribution process for this package.
+A Rust package designed to help you create template repositories easily to start with anchor framework on Solana. This `README.md` file will guide you through the installation, usage, and contribution process for this package.
 
 ## Table of Contents
 
